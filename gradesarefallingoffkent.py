@@ -1,6 +1,23 @@
 import random
 from datetime import datetime
 
+from getpass import getpass
+
+import sys
+
+ADMIN_PASSWORD = "ahlala"
+
+# ----------- MISCELLANEOUS ------------ #
+
+def get_input(prompt):
+    value = input(prompt)
+
+    if value == "-1":
+        print("Program forcefully terminated.")
+        sys.exit()
+
+    return value
+
 # ---------------- DATA ---------------- #
 
 sections = {
@@ -224,7 +241,7 @@ def score_management():
 
         print_box(menu)
 
-        choice = input("Choice: ")
+        choice = get_input("Choice: ")
 
         if choice == "0":
             break
@@ -235,18 +252,19 @@ def score_management():
             print("Invalid section!")
             continue
 
-        if choice == "1":
-            enter_assignment_scores(section)
-        elif choice == "2":
-            enter_student_scores(section)
-        elif choice == "3":
-            edit_assignment_scores(section)
-        elif choice == "4":
-            edit_student_scores(section)
-        elif choice == "5":
-            edit_specific_score(section)
-        elif choice == "6":
-            print(sections)
+        actions = {
+            "1": lambda: enter_assignment_scores(section),
+            "2": lambda: enter_student_scores(section),
+            "3": lambda: edit_assignment_scores(section),
+            "4": lambda: edit_student_scores(section),
+            "5": lambda: edit_specific_score(section),
+            "6": lambda: print(sections)
+        }
+
+        action = actions.get(choice)
+
+        if action:
+            action()
         else:
             print("Invalid choice!")
 
@@ -261,16 +279,23 @@ def teacher_menu():
         ]
         print_box(menu)
 
-        c = input("Choice: ")
+        c = get_input("Choice: ")
 
-        if c == "1":
-            score_management()
-        elif c == "2":
-            search_student()
-        elif c == "3":
-            print(sections)
-        elif c == "0":
+        if c == "0":
             break
+
+        actions = {
+            "1": score_management,
+            "2": search_student,
+            "3": lambda: print(sections)
+        }
+
+        action = actions.get(c)
+
+        if action:
+            action()
+        else:
+            print("Invalid choice!")
 
 def admin_menu():
     while True:
@@ -287,24 +312,27 @@ def admin_menu():
         ]
         print_box(menu)
 
-        c = input("Choice: ")
+        c = get_input("Choice: ")
 
-        if c == "1":
-            add_student()
-        elif c == "2":
-            update_status()
-        elif c == "3":
-            score_management()
-        elif c == "4":
-            search_student()
-        elif c == "5":
-            add_section()
-        elif c == "6":
-            remove_section()
-        elif c == "7":
-            print(sections)
-        elif c == "0":
+        if c == "0":
             break
+
+        actions = {
+            "1": add_student,
+            "2": update_status,
+            "3": score_management,
+            "4": search_student,
+            "5": add_section,
+            "6": remove_section,
+            "7": lambda: print(sections)
+        }
+
+        action = actions.get(c)
+
+        if action:
+            action()
+        else:
+            print("Invalid choice!")
 
 # ---------------- LOGIN ---------------- #
 
@@ -323,7 +351,14 @@ def main():
         if choice == "1":
             teacher_menu()
         elif choice == "2":
-            admin_menu()
+            for i in range(3):
+                password = getpass("Password: ")
+                if password == ADMIN_PASSWORD:
+                    print("Entering Admin Mode...")
+                    admin_menu()
+                    return
+                print("Password Incorrect")
+            print("Too many failed attempts.")
         elif choice == "0":
             break
 
