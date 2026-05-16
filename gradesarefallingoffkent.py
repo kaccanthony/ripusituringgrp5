@@ -1,21 +1,17 @@
 import random
 from datetime import datetime
-
 from getpass import getpass
-
 import sys
 
 ADMIN_PASSWORD = "ahlala"
 
-# ----------- MISCELLANEOUS ------------ #
+# ----------- MISC ----------- #
 
 def get_input(prompt):
     value = input(prompt)
-
     if value == "-1":
         print("Program forcefully terminated.")
         sys.exit()
-
     return value
 
 # ---------------- DATA ---------------- #
@@ -38,7 +34,7 @@ sec_act = {
     "TN23": {"SA1", "SA2", "SA3", "SA4", "ME", "FE"}
 }
 
-# ---------------- UI BOX ---------------- #
+# ---------------- UI ---------------- #
 
 def print_box(lines):
     width = max(len(line) for line in lines) + 4
@@ -50,59 +46,118 @@ def print_box(lines):
             print("| " + line.ljust(width - 4) + " |")
     print("=" * width)
 
+def print_table(headers, rows):
+    col_widths = [len(h) for h in headers]
+
+    for row in rows:
+        for i, cell in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(str(cell)))
+
+    total_width = sum(col_widths) + len(col_widths)*3 + 1
+    print("=" * total_width)
+
+    header_row = "| " + " | ".join(
+        headers[i].ljust(col_widths[i]) for i in range(len(headers))
+    ) + " |"
+    print(header_row)
+
+    print("=" * total_width)
+
+    for row in rows:
+        row_str = "| " + " | ".join(
+            str(row[i]).ljust(col_widths[i]) for i in range(len(row))
+        ) + " |"
+        print(row_str)
+
+    print("=" * total_width)
+
 # ---------------- HELPERS ---------------- #
 
 def student_exists(student_id):
-    for sec in sections:
-        if student_id in sections[sec]["students"]:
-            return True
-    return False
+    return any(student_id in sections[s]["students"] for s in sections)
 
 def generate_student_id():
     year = datetime.now().year
     while True:
-        student_id = f"{year}-{random.randint(100000,999999)}"
-        if not student_exists(student_id):
-            return student_id
+        sid = f"{year}-{random.randint(100000,999999)}"
+        if not student_exists(sid):
+            return sid
 
 def select_section():
-    lines = ["Available Sections:"]
-    for sec in sections:
-        count = len(sections[sec]["students"])
-        lines.append(f"{sec} ({count} students)")
-    print_box(lines)
-    return input("Enter section: ")
+    print_box(["Available Sections:"] + [
+        f"{sec} ({len(sections[sec]['students'])} students)" for sec in sections
+    ])
+    return get_input("Enter section: ")
 
 def select_student(section):
-    students = sections[section]["students"]
-    lines = ["Students:"]
-    for s in students:
-        lines.append(s)
-    print_box(lines)
-    return input("Enter student: ")
+    print_box(["Students:"] + list(sections[section]["students"].keys()))
+    return get_input("Enter student: ")
 
 def list_section_assignments(section):
-    lines = [f"Assignments for {section}:"]
-    for act in sorted(sec_act[section]):
-        lines.append(act)
-    print_box(lines)
+    print_box([f"{section} Assignments:"] + sorted(sec_act[section]))
+
+# ---------------- VIEW ---------------- #
+
+def view_student_grades():
+    section = select_section()
+    if section not in sections:
+        print("Invalid section!")
+        return
+
+    headers = ["STUD NO", "LAST NAME", "FIRST NAME", "MI"] + sorted(sec_act[section])
+    rows = []
+
+    for sid, data in sections[section]["students"].items():
+        row = [
+            sid,
+            data["Last Name"],
+            data["First Name"],
+            data["Middle Initial"]
+        ]
+
+        for act in sorted(sec_act[section]):
+            row.append(data["grades"].get(act, "-"))
+
+        rows.append(row)
+
+    print_table(headers, rows)
+
+def view_admin_table():
+    for section in sections:
+        print(f"\nSECTION: {section}")
+
+        headers = ["STUD NO", "LAST NAME", "FIRST NAME", "MI", "STATUS"] + sorted(sec_act[section])
+        rows = []
+
+        for sid, data in sections[section]["students"].items():
+            row = [
+                sid,
+                data["Last Name"],
+                data["First Name"],
+                data["Middle Initial"],
+                data["status"]
+            ]
+
+            for act in sorted(sec_act[section]):
+                row.append(data["grades"].get(act, "-"))
+
+            rows.append(row)
+
+        print_table(headers, rows)
 
 # ---------------- SEARCH ---------------- #
 
 def search_student():
-    keyword = input("Search name or ID: ").lower()
+    keyword = get_input("Search Student ID: ").lower()
     results = []
 
     for sec in sections:
         for sid, data in sections[sec]["students"].items():
-            name = f"{data['First Name']} {data['Last Name']}".lower()
+            name = f"{data['First Name']} {data['Last Name']}"
             if keyword in sid or keyword in name:
                 results.append(f"{sid} - {name} ({sec})")
 
-    if results:
-        print_box(["Results:"] + results)
-    else:
-        print("No results found.")
+    print_box(["Results:"] + results if results else ["No results found."])
 
 # ---------------- ADMIN ---------------- #
 
@@ -114,114 +169,79 @@ def add_student():
 
     sid = generate_student_id()
 
-    lname = input("Last name: ")
-    fname = input("First name: ")
-    mi = input("Middle initial: ")
-
     sections[section]["students"][sid] = {
-        "Last Name": lname,
-        "First Name": fname,
-        "Middle Initial": mi,
+        "Last Name": get_input("Last name: "),
+        "First Name": get_input("First name: "),
+        "Middle Initial": get_input("Middle initial: "),
         "status": "active",
         "grades": {}
     }
 
-    print(f"Added {sid} to {section}")
-
 def update_status():
     section = select_section()
     student = select_student(section)
-
-    status = input("New status: ")
-    sections[section]["students"][student]["status"] = status
-    print("Updated.")
+    sections[section]["students"][student]["status"] = get_input("New status: ")
 
 def add_section():
-    sec = input("New section: ")
+    sec = get_input("New section: ")
     if sec in sections:
-        print("Already exists!")
+        print("Exists!")
         return
-
     sections[sec] = {"students": {}}
     sec_act[sec] = set()
-    print("Section added.")
 
 def remove_section():
-    sec = input("Section to remove: ")
-    if sec not in sections:
-        print("Not found!")
-        return
-
-    del sections[sec]
-    del sec_act[sec]
-    print("Removed.")
+    sec = get_input("Remove section: ")
+    if sec in sections:
+        del sections[sec]
+        del sec_act[sec]
 
 # ---------------- GRADES ---------------- #
 
 def enter_assignment_scores(section):
     list_section_assignments(section)
-    assignment = input("Assignment: ")
+    a = get_input("Assignment: ")
 
-    if assignment not in sec_act[section]:
-        print("Invalid!")
+    if a not in sec_act[section]:
         return
 
     for student in sections[section]["students"]:
-        score = float(input(f"{student}: "))
-        sections[section]["students"][student]["grades"][assignment] = score
+        sections[section]["students"][student]["grades"][a] = float(get_input(f"{student}: "))
 
 def enter_student_scores(section):
     student = select_student(section)
 
     while True:
-        list_section_assignments(section)
-        assignment = input("Assignment (done to stop): ")
-
-        if assignment.lower() == "done":
+        a = get_input("Assignment (done): ")
+        if a == "done":
             break
-
-        if assignment not in sec_act[section]:
-            print("Invalid!")
+        if a not in sec_act[section]:
             continue
-
-        score = float(input("Score: "))
-        sections[section]["students"][student]["grades"][assignment] = score
+        sections[section]["students"][student]["grades"][a] = float(get_input("Score: "))
 
 def edit_specific_score(section):
     student = select_student(section)
     grades = sections[section]["students"][student]["grades"]
 
     print_box(["Assignments:"] + list(grades.keys()))
-    assignment = input("Assignment: ")
+    a = get_input("Assignment: ")
 
-    if assignment in grades:
-        score = float(input("New score: "))
-        grades[assignment] = score
+    if a in grades:
+        grades[a] = float(get_input("New score: "))
 
 def edit_assignment_scores(section):
-    list_section_assignments(section)
-    assignment = input("Enter assignment to edit: ")
-
-    if assignment not in sec_act[section]:
-        print("Invalid assignment!")
-        return
-
+    a = get_input("Assignment: ")
     for student in sections[section]["students"]:
         grades = sections[section]["students"][student]["grades"]
-
-        if assignment in grades:
-            score = float(input(f"New score for {student}: "))
-            grades[assignment] = score
-        else:
-            print(f"{student} has no score for {assignment}")
+        if a in grades:
+            grades[a] = float(get_input(f"{student}: "))
 
 def edit_student_scores(section):
     student = select_student(section)
     grades = sections[section]["students"][student]["grades"]
 
-    for assignment in grades:
-        score = float(input(f"New score for {assignment}: "))
-        grades[assignment] = score
+    for a in grades:
+        grades[a] = float(get_input(f"{a}: "))
 
 # ---------------- MENUS ---------------- #
 
@@ -235,21 +255,18 @@ def score_management():
             "3 Edit scores for one assignment",
             "4 Edit scores for one student",
             "5 Edit specific score",
-            "6 View Data",
             "0 Back"
         ]
 
         print_box(menu)
 
-        choice = get_input("Choice: ")
 
-        if choice == "0":
+        c = get_input("Choice: ")
+        if c == "0":
             break
 
         section = select_section()
-
         if section not in sections:
-            print("Invalid section!")
             continue
 
         actions = {
@@ -258,48 +275,35 @@ def score_management():
             "3": lambda: edit_assignment_scores(section),
             "4": lambda: edit_student_scores(section),
             "5": lambda: edit_specific_score(section),
-            "6": lambda: print(sections)
         }
 
-        action = actions.get(choice)
-
-        if action:
-            action()
-        else:
-            print("Invalid choice!")
+        actions.get(c, lambda: print("Invalid"))()
 
 def teacher_menu():
     while True:
-        menu = [
+        print_box([
             "TEACHER MENU",
             "1 Manage Grades",
             "2 Search Student",
-            "3 View Data",
+            "3 View Students + Grades",
             "0 Exit"
-        ]
-        print_box(menu)
-
-        c = get_input("Choice: ")
-
-        if c == "0":
-            break
+        ])
 
         actions = {
             "1": score_management,
             "2": search_student,
-            "3": lambda: print(sections)
+            "3": view_student_grades
         }
 
-        action = actions.get(c)
+        c = get_input("Choice: ")
+        if c == "0":
+            break
 
-        if action:
-            action()
-        else:
-            print("Invalid choice!")
+        actions.get(c, lambda: print("Invalid"))()
 
 def admin_menu():
     while True:
-        menu = [
+        print_box([
             "ADMIN MENU",
             "1 Add Student",
             "2 Update Status",
@@ -307,15 +311,9 @@ def admin_menu():
             "4 Search Student",
             "5 Add Section",
             "6 Remove Section",
-            "7 View Data",
+            "7 View Full Table",
             "0 Exit"
-        ]
-        print_box(menu)
-
-        c = get_input("Choice: ")
-
-        if c == "0":
-            break
+        ])
 
         actions = {
             "1": add_student,
@@ -324,41 +322,40 @@ def admin_menu():
             "4": search_student,
             "5": add_section,
             "6": remove_section,
-            "7": lambda: print(sections)
+            "7": view_admin_table
         }
 
-        action = actions.get(c)
+        c = get_input("Choice: ")
+        if c == "0":
+            break
 
-        if action:
-            action()
-        else:
-            print("Invalid choice!")
+        actions.get(c, lambda: print("Invalid"))()
 
 # ---------------- LOGIN ---------------- #
 
 def main():
     while True:
-        menu = [
+        print_box([
             "LOGIN",
             "1 Teacher",
             "2 Admin",
             "0 Exit"
-        ]
-        print_box(menu)
+        ])
 
-        choice = input("Choice: ")
+        choice = get_input("Choice: ")
 
         if choice == "1":
             teacher_menu()
+
         elif choice == "2":
-            for i in range(3):
-                password = getpass("Password: ")
-                if password == ADMIN_PASSWORD:
+            for _ in range(3):
+                if getpass("Password: ") == ADMIN_PASSWORD:
                     print("Entering Admin Mode...")
                     admin_menu()
-                    return
-                print("Password Incorrect")
-            print("Too many failed attempts.")
+                    break
+                print("Wrong password")
+            else:
+                print("Too many attempts")
         elif choice == "0":
             break
 
