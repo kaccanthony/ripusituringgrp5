@@ -177,6 +177,8 @@ def add_student():
         "grades": {}
     }
 
+    print(f"\nStudent Created... Generated ID: {sid}")
+
 def update_status():
     section = select_section()
     student = select_student(section)
